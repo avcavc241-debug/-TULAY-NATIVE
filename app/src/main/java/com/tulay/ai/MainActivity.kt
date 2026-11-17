@@ -7,11 +7,16 @@ import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : Activity() {
 
     private val navy = Color.rgb(5, 11, 25)
     private val blue = Color.rgb(35, 145, 255)
+    private val serverUrl = "https://tulay-aiiaay.infrlo.com/chat"
+
     private lateinit var messages: LinearLayout
     private lateinit var input: EditText
 
@@ -51,6 +56,7 @@ class MainActivity : Activity() {
         root.addView(status)
 
         val scroll = ScrollView(this)
+
         messages = LinearLayout(this)
         messages.orientation = LinearLayout.VERTICAL
         messages.setPadding(8, 12, 8, 12)
@@ -64,6 +70,7 @@ class MainActivity : Activity() {
         messages.addView(welcome)
 
         scroll.addView(messages)
+
         root.addView(
             scroll,
             LinearLayout.LayoutParams(
@@ -83,6 +90,7 @@ class MainActivity : Activity() {
         input.setSingleLine(true)
         input.setPadding(14, 10, 14, 10)
         input.setBackgroundColor(Color.rgb(22, 36, 57))
+
         bottom.addView(
             input,
             LinearLayout.LayoutParams(0, 55, 1f)
@@ -96,11 +104,92 @@ class MainActivity : Activity() {
 
         send.setOnClickListener {
             val message = input.text.toString().trim()
+
             if (message.isNotEmpty()) {
                 addMessage("أنت: $message")
                 input.text.clear()
-                addMessage("تولاي: واجهتي جاهزة، وسنفعّل الاتصال بالذكاء الاصطناعي بالخطوة القادمة.")
-                scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                send.isEnabled = false
+                send.text = "..."
+
+                scroll.post {
+                    scroll.fullScroll(View.FOCUS_DOWN)
+                }
+
+                Thread {
+                    try {
+                        val connection = URL(serverUrl)
+                            .openConnection() as HttpURLConnection
+
+                        connection.requestMethod = "POST"
+                        connection.connectTimeout = 20000
+                        connection.readTimeout = 70000
+                        connection.doOutput = true
+                        connection.setRequestProperty(
+                            "Content-Type",
+                            "application/json; charset=utf-8"
+                        )
+
+                        val requestBody = JSONObject()
+                            .put("message", message)
+                            .toString()
+                            .toByteArray(Charsets.UTF_8)
+
+                        connection.outputStream.use {
+                            it.write(requestBody)
+                        }
+
+                        val code = connection.responseCode
+
+                        val responseText = (
+                            if (code in 200..299) {
+                                connection.inputStream
+                            } else {
+                                connection.errorStream
+                            }
+                        )?.bufferedReader()?.use {
+                            it.readText()
+                        } ?: ""
+
+                        connection.disconnect()
+
+                        val response = JSONObject(responseText)
+
+                        val reply = if (code in 200..299) {
+                            response.optString(
+                                "reply",
+                                "تولاي استلمت الرد لكن ما كدرت تقراه."
+                            )
+                        } else {
+                            response.optString(
+                                "error",
+                                "خطأ بالخادم: $code"
+                            )
+                        }
+
+                        runOnUiThread {
+                            addMessage("تولاي: $reply")
+                            scroll.post {
+                                scroll.fullScroll(View.FOCUS_DOWN)
+                            }
+                        }
+
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            addMessage(
+                                "تولاي: ما كدرت أتصل بالخادم. " +
+                                "تأكد من الإنترنت وحاول مرة ثانية."
+                            )
+                            scroll.post {
+                                scroll.fullScroll(View.FOCUS_DOWN)
+                            }
+                        }
+                    } finally {
+                        runOnUiThread {
+                            send.isEnabled = true
+                            send.text = "إرسال"
+                        }
+                    }
+                }.start()
             }
         }
 
@@ -120,6 +209,7 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
+
         params.setMargins(0, 8, 0, 8)
         messages.addView(item, params)
     }
