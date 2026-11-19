@@ -1,6 +1,14 @@
 package com.tulay.ai
 
 import android.app.Activity
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -19,11 +27,17 @@ class MainActivity : Activity() {
     private val blue = Color.rgb(35, 160, 255)
     private val cyan = Color.rgb(70, 220, 255)
     private val serverUrl = "https://tulay-aiiaay.infrlo.com/chat"
+    private val memoryUrl = "https://tulay-aiiaay.infrlo.com/memories"
 
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var input: EditText
     private lateinit var send: TextView
+    private lateinit var mic: TextView
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var textToSpeech: TextToSpeech? = null
+    private var ttsReady = false
+    private val requestAudioPermission = 701
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
@@ -191,7 +205,21 @@ class MainActivity : Activity() {
             background = shape(blue, 18)
         }
 
+        mic = TextView(this).apply {
+            text = "🎙️"
+            textSize = 21f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = shape(Color.rgb(20, 110, 130), 18)
+        }
+
+        composer.addView(mic, LinearLayout.LayoutParams(dp(48), dp(46)))
+
         composer.addView(send, LinearLayout.LayoutParams(dp(48), dp(46)))
+
+        mic.setOnClickListener {
+            startVoiceInput()
+        }
 
         root.addView(
             composer,
@@ -208,6 +236,126 @@ class MainActivity : Activity() {
         }
 
         setContentView(root)
+
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = textToSpeech?.setLanguage(Locale("ar", "IQ"))
+                ttsReady = result != null &&
+                    result != TextToSpeech.LANG_MISSING_DATA &&
+                    result != TextToSpeech.LANG_NOT_SUPPORTED
+
+                if (!ttsReady) {
+                    val fallback = textToSpeech?.setLanguage(Locale("ar"))
+                    ttsReady = fallback != null &&
+                        fallback != TextToSpeech.LANG_MISSING_DATA &&
+                        fallback != TextToSpeech.LANG_NOT_SUPPORTED
+                }
+            }
+        }
+    }
+
+
+    private fun startVoiceInput() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                requestAudioPermission
+            )
+            return
+        }
+
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            addMessage("خدمة التعرف على الصوت غير متوفرة بهذا الهاتف.", false)
+            return
+        }
+
+        if (speechRecognizer == null) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    runOnUiThread { mic.text = "🔴" }
+                }
+
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {
+                    runOnUiThread { mic.text = "🎙️" }
+                }
+
+                override fun onError(error: Int) {
+                    runOnUiThread {
+                        mic.text = "🎙️"
+                        addMessage("ما سمعت الكلام بوضوح. حاول مرة ثانية.", false)
+                    }
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val words = results?.getStringArrayList(
+                        SpeechRecognizer.RESULTS_RECOGNITION
+                    )
+                    val spokenText = words?.firstOrNull().orEmpty()
+
+                    runOnUiThread {
+                        mic.text = "🎙️"
+                        if (spokenText.isNotBlank()) {
+                            input.setText(spokenText)
+                            sendMessage()
+                        }
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-IQ")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ar-IQ")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+
+        try {
+            mic.text = "⏳"
+            speechRecognizer?.startListening(intent)
+        } catch (e: Exception) {
+            mic.text = "🎙️"
+            addMessage("تعذر تشغيل المايك: ${e.message}", false)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == requestAudioPermission) {
+            if (grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startVoiceInput()
+            } else {
+                addMessage("لازم تسمح لتولاي باستخدام المايك حتى تسمعك.", false)
+            }
+        }
+    }
+
+    private fun speakReply(text: String) {
+        if (ttsReady && text.isNotBlank()) {
+            textToSpeech?.speak(
+                text,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "tulay_reply"
+            )
+        }
     }
 
     private fun addMessage(text: String, isUser: Boolean) {
@@ -299,6 +447,7 @@ class MainActivity : Activity() {
 
                 runOnUiThread {
                     addMessage(reply, false)
+                    speakReply(reply)
                 }
 
             } catch (e: Exception) {
@@ -315,5 +464,16 @@ class MainActivity : Activity() {
                 }
             }
         }.start()
+    }
+
+    override fun onDestroy() {
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+
+        super.onDestroy()
     }
 }
