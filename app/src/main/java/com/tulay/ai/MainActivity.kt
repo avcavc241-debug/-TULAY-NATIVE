@@ -26,8 +26,8 @@ class MainActivity : Activity() {
     private val panel = Color.rgb(15, 25, 47)
     private val blue = Color.rgb(35, 160, 255)
     private val cyan = Color.rgb(70, 220, 255)
-    private val serverUrl = "https://tulay-aiiaay.infrlo.com/chat"
-    private val memoryUrl = "https://tulay-aiiaay.infrlo.com/memories"
+    private val serverUrl = "https://tulay-ai-production.up.railway.app/chat"
+    private val memoryUrl = "https://tulay-ai-production.up.railway.app/memories"
 
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ScrollView
