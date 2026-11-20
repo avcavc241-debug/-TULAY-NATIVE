@@ -388,12 +388,64 @@ class MainActivity : Activity() {
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 
+    private fun handlePhoneCommand(message: String): Boolean {
+        val text = message.lowercase(Locale.ROOT)
+        val hasOpenCommand = listOf("افتح", "افتحي", "شغل", "شغّل", "وديني", "روح الى", "روح لـ").any { text.contains(it) }
+        if (!hasOpenCommand) return false
+
+        val target = when {
+            text.contains("واتساب") || text.contains("واتس اب") -> "whatsapp"
+            text.contains("يوتيوب") -> "youtube"
+            text.contains("تيليجرام") || text.contains("تلغرام") || text.contains("تليجرام") -> "telegram"
+            text.contains("الكاميرا") || text.contains("كاميرا") -> "camera"
+            text.contains("الإعدادات") || text.contains("الاعدادات") || text.contains("إعدادات") -> "settings"
+            else -> return false
+        }
+
+        val appName = when (target) {
+            "whatsapp" -> "واتساب"
+            "youtube" -> "يوتيوب"
+            "telegram" -> "تيليجرام"
+            "camera" -> "الكاميرا"
+            else -> "الإعدادات"
+        }
+
+        try {
+            val launchIntent = when (target) {
+                "whatsapp" -> packageManager.getLaunchIntentForPackage("com.whatsapp")
+                "youtube" -> packageManager.getLaunchIntentForPackage("com.google.android.youtube")
+                "telegram" -> packageManager.getLaunchIntentForPackage("org.telegram.messenger")
+                "camera" -> Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+                else -> Intent(android.provider.Settings.ACTION_SETTINGS)
+            }
+
+            if (launchIntent == null) {
+                val reply = "تطبيق $appName مو مثبت أو ما كدرت أوصله على الموبايل."
+                addMessage(reply, false)
+                speakReply(reply)
+                return true
+            }
+
+            startActivity(launchIntent)
+            val reply = "حاضر، دا أفتح $appName."
+            addMessage(reply, false)
+            speakReply(reply)
+        } catch (e: Exception) {
+            val reply = "ما كدرت أفتح $appName. حاول مرة ثانية."
+            addMessage(reply, false)
+            speakReply(reply)
+        }
+        return true
+    }
+
     private fun sendMessage() {
         val message = input.text.toString().trim()
         if (message.isEmpty()) return
 
         addMessage(message, true)
         input.text.clear()
+
+        if (handlePhoneCommand(message)) return
         send.isEnabled = false
         send.text = "..."
 
