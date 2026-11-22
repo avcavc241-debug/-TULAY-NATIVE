@@ -191,7 +191,7 @@ class LiveVoiceActivity : Activity() {
     private fun connectGemini(token: String, model: String) {
 
         val url = (
-            "wss://generativelanguage.googleapis.com/" +
+            "https://generativelanguage.googleapis.com/" +
             "ws/google.ai.generativelanguage.v1alpha." +
             "GenerativeService.BidiGenerateContentConstrained"
         ).toHttpUrl().newBuilder()
