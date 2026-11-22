@@ -55,25 +55,25 @@ class LiveVoiceActivity : Activity() {
         window.navigationBarColor = navy
 
         val root = LinearLayout(this).apply {
-        val avatar = ImageView(this).apply {
-            setImageResource(R.drawable.tulay_avatar)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            layoutParams = LinearLayout.LayoutParams(
-                260,
-                260
-            ).apply {
-                gravity = Gravity.CENTER
-                bottomMargin = 24
-            }
-        }
-        root.addView(avatar)
-
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(navy)
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
+
+        val avatar = ImageView(this@LiveVoiceActivity).apply {
+            setImageResource(R.drawable.tulay_avatar)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+
+        root.addView(
+            avatar,
+            LinearLayout.LayoutParams(dp(260), dp(260)).apply {
+                gravity = Gravity.CENTER
+                bottomMargin = dp(24)
+            }
+        )
 
         root.addView(TextView(this).apply {
             text = "TULAY LIVE"
