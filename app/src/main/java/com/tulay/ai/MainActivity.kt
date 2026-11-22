@@ -218,7 +218,7 @@ class MainActivity : Activity() {
         composer.addView(send, LinearLayout.LayoutParams(dp(48), dp(46)))
 
         mic.setOnClickListener {
-            startVoiceInput()
+            startActivity(Intent(this, LiveVoiceActivity::class.java))
         }
 
         root.addView(
