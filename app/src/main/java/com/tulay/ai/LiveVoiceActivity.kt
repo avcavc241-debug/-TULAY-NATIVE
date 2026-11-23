@@ -44,6 +44,9 @@ class LiveVoiceActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var button: Button
+    private lateinit var chatButton: TextView
+    private lateinit var muteButton: TextView
+    @Volatile private var micMuted = false
 
     private fun dp(v: Int) =
         (v * resources.displayMetrics.density).toInt()
@@ -54,87 +57,118 @@ class LiveVoiceActivity : Activity() {
         window.statusBarColor = navy
         window.navigationBarColor = navy
 
-        val root = LinearLayout(this).apply {
+        val root = FrameLayout(this)
+
+        val backgroundImage = ImageView(this).apply {
+            setImageResource(R.drawable.tulaylive)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+        root.addView(backgroundImage, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        val overlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            setBackgroundColor(navy)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(22), dp(28), dp(22), dp(24))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
 
-        val avatar = ImageView(this@LiveVoiceActivity).apply {
-            setImageResource(R.drawable.tulay_avatar)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-        }
-
-        root.addView(
-            avatar,
-            LinearLayout.LayoutParams(dp(260), dp(260)).apply {
-                gravity = Gravity.CENTER
-                bottomMargin = dp(24)
-            }
-        )
-
-        root.addView(TextView(this).apply {
+        overlay.addView(TextView(this).apply {
             text = "TULAY LIVE"
-            textSize = 27f
+            textSize = 25f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-        })
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(60)
+        ))
 
-        root.addView(TextView(this).apply {
-            text = "تولاي تسمعك وتحچي وياك مباشرة"
-            textSize = 16f
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, dp(15), 0, dp(35))
-        })
-
-        root.addView(TextView(this).apply {
-            text = "✦"
-            textSize = 85f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(
-                    Color.rgb(30, 90, 190),
-                    Color.rgb(15, 25, 75)
-                )
-            ).apply {
-                shape = GradientDrawable.OVAL
-                setStroke(dp(3), Color.CYAN)
-            }
-        }, LinearLayout.LayoutParams(dp(180), dp(180)))
+        overlay.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
 
         status = TextView(this).apply {
             text = "جاهزة للاتصال"
-            textSize = 17f
-            setTextColor(Color.CYAN)
+            textSize = 16f
+            setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(0, dp(35), 0, dp(20))
+            background = GradientDrawable().apply {
+                setColor(0x88000000.toInt())
+                cornerRadius = dp(20).toFloat()
+            }
         }
-        root.addView(status)
+        overlay.addView(status, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
+        ).apply { bottomMargin = dp(22) })
+
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+        }
+
+        fun styleControl(view: TextView, color: Int) {
+            view.gravity = Gravity.CENTER
+            view.textSize = 25f
+            view.setTextColor(Color.WHITE)
+            view.background = GradientDrawable().apply {
+                setColor(color)
+                shape = GradientDrawable.OVAL
+                setStroke(dp(1), 0x88FFFFFF.toInt())
+            }
+        }
+
+        chatButton = TextView(this).apply {
+            text = "💬"
+            contentDescription = "المحادثة النصية"
+        }
+        styleControl(chatButton, Color.rgb(35, 105, 190))
+        chatButton.setOnClickListener {
+            startActivity(android.content.Intent(
+                this@LiveVoiceActivity, MainActivity::class.java
+            ))
+        }
 
         button = Button(this).apply {
-            text = "ابدأ المحادثة"
-            textSize = 17f
+            text = "ابدأ الاتصال"
+            textSize = 14f
             setTextColor(Color.WHITE)
-            setBackgroundColor(blue)
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(190, 45, 60))
+                cornerRadius = dp(28).toFloat()
+            }
             setOnClickListener {
                 if (connected || recording) stopLive()
                 else startLive()
             }
         }
 
-        root.addView(
-            button,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(58)
-            )
-        )
+        muteButton = TextView(this).apply {
+            text = "🎙️"
+            contentDescription = "كتم المايك"
+        }
+        styleControl(muteButton, Color.rgb(35, 105, 190))
+        muteButton.setOnClickListener {
+            micMuted = !micMuted
+            muteButton.text = if (micMuted) "🔇" else "🎙️"
+            muteButton.contentDescription =
+                if (micMuted) "تشغيل المايك" else "كتم المايك"
+            updateStatus(if (micMuted) "المايك مكتوم" else "تولاي تسمعك")
+        }
+
+        controls.addView(chatButton, LinearLayout.LayoutParams(dp(66), dp(66)).apply {
+            marginEnd = dp(22)
+        })
+        controls.addView(button, LinearLayout.LayoutParams(dp(110), dp(58)))
+        controls.addView(muteButton, LinearLayout.LayoutParams(dp(66), dp(66)).apply {
+            marginStart = dp(22)
+        })
+
+        overlay.addView(controls)
+        root.addView(overlay, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
 
         setContentView(root)
     }
@@ -250,7 +284,7 @@ class LiveVoiceActivity : Activity() {
                         connected = true
                         runOnUiThread {
                             button.isEnabled = true
-                            button.text = "إنهاء المحادثة"
+                            button.text = "إنهاء"
                         }
                         startAudio()
                         updateStatus("تولاي تسمعك الآن 🎙️")
@@ -402,7 +436,7 @@ class LiveVoiceActivity : Activity() {
                         buffer, 0, buffer.size
                     ) ?: -1
 
-                    if (count > 0) {
+                    if (count > 0 && !micMuted) {
                         val encoded = Base64.encodeToString(
                             buffer.copyOf(count),
                             Base64.NO_WRAP
@@ -448,6 +482,7 @@ class LiveVoiceActivity : Activity() {
     private fun stopLive() {
         recording = false
         connected = false
+        micMuted = false
 
         socket?.close(1000, "User ended session")
         socket = null
@@ -455,7 +490,7 @@ class LiveVoiceActivity : Activity() {
         releaseAudio()
 
         runOnUiThread {
-            button.text = "ابدأ المحادثة"
+            button.text = "ابدأ الاتصال"
             button.isEnabled = true
             updateStatus("انتهت المحادثة")
         }
