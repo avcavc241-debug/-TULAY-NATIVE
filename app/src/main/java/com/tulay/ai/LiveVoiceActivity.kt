@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
+import com.bumptech.glide.Glide
 import android.widget.*
 import android.graphics.drawable.GradientDrawable
 import android.util.Base64
@@ -42,6 +43,7 @@ class LiveVoiceActivity : Activity() {
 
     private val audioQueue = LinkedBlockingQueue<ByteArray>()
 
+    private lateinit var avatar: ImageView
     private lateinit var status: TextView
     private lateinit var button: Button
     private lateinit var chatButton: TextView
@@ -85,7 +87,14 @@ class LiveVoiceActivity : Activity() {
             LinearLayout.LayoutParams.MATCH_PARENT, dp(60)
         ))
 
-        overlay.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        avatar = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "شخصية تولاي المتحركة"
+        }
+        Glide.with(this).asGif().load(R.raw.tulay_avatar).into(avatar)
+        overlay.addView(avatar, LinearLayout.LayoutParams(
+            dp(260), dp(260)
+        ).apply { bottomMargin = dp(12) })
 
         status = TextView(this).apply {
             text = "جاهزة للاتصال"
